@@ -6,8 +6,17 @@ const Header = () => {
 
 	return (
 		<nav className="navbar navbar-expand-lg navbar-dark bg-dark px-4">
+			<a
+				href="https://github.com/ximofam/chess-online"
+				target="_blank"
+				rel="noopener noreferrer"
+				className="text-white fs-5 me-3"
+			>
+				<i className="bi bi-github"></i>
+			</a>
+
 			<Link className="navbar-brand fw-bold logo" to="/">
-				♟ Chess Online
+				Chess Online
 			</Link>
 
 			{user &&

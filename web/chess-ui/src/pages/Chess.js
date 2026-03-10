@@ -97,9 +97,9 @@ function Chess() {
 
 		const interval = setInterval(() => {
 			if (turn === "White") {
-				setWhiteTime(t => Math.max(t - 1, 0))
+				setWhiteTime(t => Math.max(t - 1e9, 0))
 			} else {
-				setBlackTime(t => Math.max(t - 1, 0))
+				setBlackTime(t => Math.max(t - 1e9, 0))
 			}
 		}, 1000)
 
