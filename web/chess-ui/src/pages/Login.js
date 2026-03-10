@@ -50,7 +50,7 @@ export default function Login() {
 		<div className="container d-flex justify-content-center align-items-center vh-100">
 			<div className="card shadow p-4" style={{ width: "400px" }}>
 
-				<h3 className="text-center mb-4">Lgin to Chess Game</h3>
+				<h3 className="text-center mb-4">Login to Chess Game</h3>
 
 				{error && (
 					<div className="alert alert-danger">

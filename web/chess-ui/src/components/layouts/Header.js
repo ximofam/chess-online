@@ -45,9 +45,14 @@ const Header = () => {
 						</button>
 					</>
 				) : (
-					<Link className="btn btn-outline-light btn-sm" to="/login">
-						Login
-					</Link>
+					<>
+						<Link className="btn btn-outline-light btn-sm" to="/login">
+							Login
+						</Link>
+						<Link className="btn btn-outline-light btn-sm" to="/register">
+							Register
+						</Link>
+					</>
 				)}
 			</div>
 		</nav>
