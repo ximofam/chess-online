@@ -1,39 +1,22 @@
-# ==========================================
-# Stage 1: Giai đoạn Build (Dùng image Golang có đầy đủ công cụ)
-# ==========================================
 FROM golang:1.25.1-alpine AS builder
 
-# Thiết lập thư mục làm việc trong container
 WORKDIR /app
 
-# Copy go.mod và go.sum trước để tải dependencies
-# Việc này giúp tận dụng Docker Cache, không phải tải lại thư viện nếu code thay đổi
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy toàn bộ mã nguồn còn lại vào
 COPY . .
 
-# Build ứng dụng từ thư mục cmd/api
-# CGO_ENABLED=0: Tắt CGO để tạo ra file nhị phân (binary) độc lập, chạy được trên Alpine
-# GOOS=linux: Chỉ định hệ điều hành đích là Linux
 RUN CGO_ENABLED=0 GOOS=linux go build -o api-server ./cmd/api
 
-# ==========================================
-# Stage 2: Giai đoạn Chạy (Dùng image Alpine siêu nhẹ, chỉ khoảng 5MB)
-# ==========================================
 FROM alpine:latest
 
-# (Tùy chọn) Cài đặt ca-certificates nếu app của bạn cần gọi API ra bên ngoài (HTTPS)
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
-# Chỉ copy đúng file nhị phân đã được build từ Stage 1 sang Stage 2
 COPY --from=builder /app/api-server .
 
-# Khai báo cổng mà API sẽ chạy (Giả sử là 8080)
 EXPOSE 8080
 
-# Lệnh chạy ứng dụng
 CMD ["./api-server"]

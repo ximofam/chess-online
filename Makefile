@@ -2,9 +2,12 @@ run-api:
 	go run cmd/api/main.go
 .PHONY: run-api
 
-run:
+build-and-run:
 	docker-compose up -d --build
-.PHONY: run
+.PHONY: build-and-run
+
+run:
+	docker-compose up -d
 
 run-docker-dev:
 	docker-compose -f docker-compose.dev.yml up -d

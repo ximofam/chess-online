@@ -17,5 +17,4 @@ type RegisterRequest struct {
 
 type RefreshTokenRequest struct {
 	Token string `json:"token" binding:"required"`
-	fas   string
 }
