@@ -51,15 +51,19 @@ var Server = &server{
 }
 
 func (s *server) register(c *Client) {
+	s.mu.Lock()
+	old, ok := s.clients[c.player.ID]
+	s.clients[c.player.ID] = c
+	s.mu.Unlock()
+
+	if ok {
+		old.Close()
+	}
+
 	s.broadcastToLobby(WsMessageResponse{
 		Type: LobbyTypeUserOnline,
 		Data: c.player,
 	})
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.clients[c.player.ID] = c
 }
 
 func (s *server) remove(remove *Client) {
@@ -80,11 +84,20 @@ func (s *server) remove(remove *Client) {
 
 func (s *server) broadcastToClients(playerIDs []uint, msg any) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	clients := make([]*Client, 0, len(playerIDs))
 
 	for _, id := range playerIDs {
 		if c, ok := s.clients[id]; ok {
-			c.write <- msg
+			clients = append(clients, c)
+		}
+	}
+	s.mu.RUnlock()
+
+	for _, c := range clients {
+		select {
+		case c.write <- msg:
+		default:
+			c.Close()
 		}
 	}
 }
@@ -95,10 +108,8 @@ func (s *server) broadcastToLobby(msg any) {
 }
 
 func (s *server) broadcastToRoom(id uint, msg any) {
-	s.mu.RLock()
-	room, ok := s.rooms[id]
-	s.mu.RUnlock()
-	if !ok {
+	room := s.getRoom(id)
+	if room == nil {
 		return
 	}
 
@@ -129,6 +140,9 @@ func (s *server) getRoom(id uint) *ChessRoom {
 func (s *server) deleteRoom(id uint) {
 	s.mu.Lock()
 	room, ok := s.rooms[id]
+	delete(s.rooms, id)
+	s.mu.Unlock()
+
 	if ok {
 		if room.gameState != nil {
 			room.gameState.Close()
@@ -142,9 +156,6 @@ func (s *server) deleteRoom(id uint) {
 			}
 		}
 	}
-
-	delete(s.rooms, id)
-	s.mu.Unlock()
 
 	s.broadcastToLobby(WsMessageResponse{
 		Type: LobbyTypeRoomDelete,
@@ -161,9 +172,6 @@ func (s *server) leaveRoom(c *Client) {
 	if gameID == 0 {
 		return
 	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 
 	game := s.getRoom(gameID)
 	if game == nil {
@@ -205,7 +213,7 @@ func (s *server) playChess(roomID uint) error {
 		return errors.New("room not found")
 	}
 
-	gameState := NewGameState(30 * time.Second)
+	gameState := NewGameState(10 * time.Minute)
 	room.gameState = gameState
 
 	go func() {
@@ -254,6 +262,6 @@ func (s *server) ServeWS(c *gin.Context) {
 	s.register(client)
 	s.lobby.register(client.player)
 
-	go client.readPump()
 	go client.writePump()
+	go client.readPump()
 }

@@ -39,7 +39,7 @@ func NewClient(player *Player, conn *websocket.Conn, handleMsgFunc HandleMsgFunc
 	return &Client{
 		player:        player,
 		conn:          conn,
-		write:         make(chan any, 10),
+		write:         make(chan any, 256),
 		handleMsgFunc: handleMsgFunc,
 		onClose:       onClose,
 	}
@@ -49,6 +49,7 @@ func (c *Client) Close() {
 	c.once.Do(func() {
 		c.onClose(c)
 		c.conn.Close()
+		close(c.write)
 	})
 }
 

@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 )
@@ -51,6 +52,18 @@ func (s *server) ChessHandleFunc(c *Client, msg *WsMessageRequest) {
 
 		room.remove(player)
 
+		chatMsg := ChatMessage{
+			Text:   fmt.Sprintf("%s has left the room", player.Username),
+			SendAt: time.Now(),
+		}
+
+		room.historyChatMsg = append(room.historyChatMsg, chatMsg)
+
+		s.broadcastToRoom(InRoom.roomID, WsMessageResponse{
+			Type: ChessTypeChat,
+			Data: chatMsg,
+		})
+
 		s.broadcastToRoom(InRoom.roomID, WsMessageResponse{
 			Type: ChessTypePlayerLeave,
 			Data: map[string]any{
@@ -59,6 +72,12 @@ func (s *server) ChessHandleFunc(c *Client, msg *WsMessageRequest) {
 				"role":     InRoom.role,
 			},
 		})
+
+		s.broadcastToLobby(WsMessageResponse{
+			Type: LobbyTypeRoomUpdate,
+			Data: toChessRoomResponse(room),
+		})
+
 	case ChessEventInfoList:
 		res := toChessRoomInfo(room)
 
@@ -76,13 +95,17 @@ func (s *server) ChessHandleFunc(c *Client, msg *WsMessageRequest) {
 			return
 		}
 
+		chatMsg := ChatMessage{
+			From:   c.player.Username,
+			Text:   payload.Text,
+			SendAt: time.Now(),
+		}
+
+		room.historyChatMsg = append(room.historyChatMsg, chatMsg)
+
 		s.broadcastToRoom(InRoom.roomID, WsMessageResponse{
 			Type: ChessTypeChat,
-			Data: ChatMessage{
-				From:   c.player.Username,
-				Text:   payload.Text,
-				SendAt: time.Now(),
-			},
+			Data: chatMsg,
 		})
 	case ChessEventPlay:
 		if InRoom.role != PlayerRoleWhite {
