@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { accessTokenKey, useAuth } from "./AuthContext"
+import { BASE_WS_URL } from "../configs/Apis"
 
 const SocketContext = createContext(null)
 
@@ -12,7 +13,7 @@ export const SocketProvider = ({ children }) => {
 		const accessToken = localStorage.getItem(accessTokenKey)
 		if (!accessToken) return
 
-		const ws = new WebSocket(`ws://localhost:8080/ws?token=${accessToken}`);
+		const ws = new WebSocket(`${BASE_WS_URL}?token=${accessToken}`);
 
 		socketRef.current = ws;
 

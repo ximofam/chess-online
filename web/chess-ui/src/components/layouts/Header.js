@@ -7,7 +7,7 @@ const Header = () => {
 	return (
 		<nav className="navbar navbar-expand-lg navbar-dark bg-dark px-4">
 			<a
-				href="https://github.com/ximofam/chess-online"
+				href="https://github.com/ximofam/chess-online.git"
 				target="_blank"
 				rel="noopener noreferrer"
 				className="text-white fs-5 me-3"
