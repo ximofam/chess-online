@@ -157,6 +157,7 @@ type ChessRoom struct {
 	historyChatMsg []ChatMessage
 	isPlaying      bool
 	mu             sync.RWMutex
+	ClientManager
 }
 
 func NewChessRoom(id uint, name string, allowSpectate bool, maxSpectators int) *ChessRoom {
@@ -168,14 +169,18 @@ func NewChessRoom(id uint, name string, allowSpectate bool, maxSpectators int) *
 		maxSpectators:  maxSpectators,
 		AllowSpectate:  allowSpectate,
 		historyChatMsg: make([]ChatMessage, 0),
+		ClientManager: ClientManager{
+			clients: make(map[*Client]struct{}),
+		},
 	}
 
 	return game
 }
 
-func (g *ChessRoom) join(u *Player, role string) error {
+func (g *ChessRoom) join(c *Client, role string) error {
 	g.mu.Lock()
-	defer g.mu.Unlock()
+
+	u := c.player
 
 	u.InRoom = InRoom{
 		roomID: g.ID,
@@ -204,16 +209,20 @@ func (g *ChessRoom) join(u *Player, role string) error {
 
 	if !success {
 		u.InRoom = InRoom{}
+		g.mu.Unlock()
 		return errors.New("failed to join room")
 	}
+	g.mu.Unlock()
+
+	g.register(c)
 
 	return nil
 }
 
-func (g *ChessRoom) remove(u *Player) {
+func (g *ChessRoom) remove(c *Client) {
 	g.mu.Lock()
-	defer g.mu.Unlock()
 
+	u := c.player
 	u.InRoom = InRoom{}
 
 	if g.White == u {
@@ -224,27 +233,11 @@ func (g *ChessRoom) remove(u *Player) {
 		for i, player := range g.spectators {
 			if u.ID == player.ID {
 				g.spectators = append(g.spectators[:i], g.spectators[i+1:]...)
-				return
+				break
 			}
 		}
 	}
+	g.mu.Unlock()
 
-}
-
-func (g *ChessRoom) getPlayerIDs() []uint {
-	ids := make([]uint, 0, 2+len(g.spectators))
-	if u := g.White; u != nil {
-		ids = append(ids, u.ID)
-	}
-	if u := g.Black; u != nil {
-		ids = append(ids, u.ID)
-	}
-
-	if g.AllowSpectate {
-		for _, player := range g.spectators {
-			ids = append(ids, player.ID)
-		}
-	}
-
-	return ids
+	g.ClientManager.remove(c)
 }

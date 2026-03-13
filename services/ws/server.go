@@ -40,7 +40,9 @@ type server struct {
 var Server = &server{
 	clients: make(map[uint]*Client),
 	lobby: &Lobby{
-		players: make(map[*Player]struct{}),
+		ClientManager{
+			clients: make(map[*Client]struct{}),
+		},
 	},
 	rooms: make(map[uint]*ChessRoom),
 	upgrader: websocket.Upgrader{
@@ -74,7 +76,7 @@ func (s *server) remove(remove *Client) {
 	s.mu.Unlock()
 
 	s.leaveRoom(remove)
-	s.lobby.remove(remove.player)
+	s.lobby.remove(remove)
 
 	s.broadcastToLobby(WsMessageResponse{
 		Type: LobbyTypeUserLeave,
@@ -82,29 +84,8 @@ func (s *server) remove(remove *Client) {
 	})
 }
 
-func (s *server) broadcastToClients(playerIDs []uint, msg any) {
-	s.mu.RLock()
-	clients := make([]*Client, 0, len(playerIDs))
-
-	for _, id := range playerIDs {
-		if c, ok := s.clients[id]; ok {
-			clients = append(clients, c)
-		}
-	}
-	s.mu.RUnlock()
-
-	for _, c := range clients {
-		select {
-		case c.write <- msg:
-		default:
-			c.Close()
-		}
-	}
-}
-
 func (s *server) broadcastToLobby(msg any) {
-	userIDs := s.lobby.getPlayerIDs()
-	s.broadcastToClients(userIDs, msg)
+	s.lobby.broadcast(msg)
 }
 
 func (s *server) broadcastToRoom(id uint, msg any) {
@@ -113,8 +94,7 @@ func (s *server) broadcastToRoom(id uint, msg any) {
 		return
 	}
 
-	userIDs := room.getPlayerIDs()
-	s.broadcastToClients(userIDs, msg)
+	room.broadcast(msg)
 }
 
 func (s *server) createRoom(name string, allowSpectate bool, maxSpectators int) *ChessRoom {
@@ -148,12 +128,9 @@ func (s *server) deleteRoom(id uint) {
 			room.gameState.Close()
 		}
 
-		playerIDs := room.getPlayerIDs()
-		for _, id := range playerIDs {
-			if c, ok := s.clients[id]; ok {
-				s.lobby.register(c.player)
-				c.SetHandleFunc(s.LobbyHandleFunc)
-			}
+		for c := range room.clients {
+			s.lobby.register(c)
+			c.SetHandleFunc(s.LobbyHandleFunc)
 		}
 	}
 
@@ -186,7 +163,7 @@ func (s *server) leaveRoom(c *Client) {
 		return
 	}
 
-	game.remove(c.player)
+	game.remove(c)
 	s.broadcastToRoom(gameID, WsMessageResponse{
 		Type: ChessTypePlayerLeave,
 		Data: map[string]any{
@@ -198,12 +175,12 @@ func (s *server) leaveRoom(c *Client) {
 }
 
 func (s *server) changeToChessHandleFunc(c *Client) {
-	s.lobby.remove(c.player)
+	s.lobby.remove(c)
 	c.SetHandleFunc(s.ChessHandleFunc)
 }
 
 func (s *server) changeToLobbyHandleFunc(c *Client) {
-	s.lobby.register(c.player)
+	s.lobby.register(c)
 	c.SetHandleFunc(s.LobbyHandleFunc)
 }
 
@@ -260,7 +237,7 @@ func (s *server) ServeWS(c *gin.Context) {
 		func(c *Client) { s.remove(c) })
 
 	s.register(client)
-	s.lobby.register(client.player)
+	s.lobby.register(client)
 
 	go client.writePump()
 	go client.readPump()

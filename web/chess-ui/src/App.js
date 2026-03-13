@@ -24,7 +24,7 @@ const App = () => {
               <Route path="/register" element={<Register />} />
             </Route>
 
-            <Route path="/chess" element={<Chess />} />
+            <Route path="/chess" element={<ProtectedRoute><Chess /></ProtectedRoute>} />
 
           </Routes>
         </BrowserRouter>

@@ -35,13 +35,13 @@ func (s *server) LobbyHandleFunc(c *Client, msg *WsMessageRequest) {
 		}
 		s.mu.RUnlock()
 
-		c.write <- WsMessageResponse{
+		c.Send(WsMessageResponse{
 			Type: LobbyTypeInfoList,
 			Data: LobbyInfo{
 				OnlineUsers: onlineUsers,
 				Rooms:       rooms,
 			},
-		}
+		})
 
 	case LobbyEventRoomCreate:
 		var payload struct {
@@ -61,14 +61,14 @@ func (s *server) LobbyHandleFunc(c *Client, msg *WsMessageRequest) {
 			payload.MaxSpectators,
 		)
 
-		if err := game.join(c.player, PlayerRoleWhite); err != nil {
+		if err := game.join(c, PlayerRoleWhite); err != nil {
 			return
 		}
 		s.changeToChessHandleFunc(c)
-		c.write <- WsMessageResponse{
+		c.Send(WsMessageResponse{
 			Type: LobbyTypeRoomJoinSucces,
 			Data: PlayerRoleWhite,
-		}
+		})
 
 		s.broadcastToLobby(WsMessageResponse{
 			Type: LobbyTypeRoomCreate,
@@ -90,14 +90,14 @@ func (s *server) LobbyHandleFunc(c *Client, msg *WsMessageRequest) {
 			return
 		}
 
-		if err := game.join(c.player, payload.Role); err != nil {
+		if err := game.join(c, payload.Role); err != nil {
 			return
 		}
 		s.changeToChessHandleFunc(c)
-		c.write <- WsMessageResponse{
+		c.Send(WsMessageResponse{
 			Type: LobbyTypeRoomJoinSucces,
 			Data: payload.Role,
-		}
+		})
 
 		notifyNewPlayerJoinToRoom(s, c.player)
 		s.broadcastToLobby(WsMessageResponse{

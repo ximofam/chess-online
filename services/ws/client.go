@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ type HandleMsgFunc func(c *Client, msg *WsMessageRequest)
 type Client struct {
 	player        *Player
 	conn          *websocket.Conn
-	write         chan any
+	write         chan []byte
 	handleMsgFunc HandleMsgFunc
 	onClose       func(*Client)
 	mu            sync.Mutex
@@ -39,7 +40,7 @@ func NewClient(player *Player, conn *websocket.Conn, handleMsgFunc HandleMsgFunc
 	return &Client{
 		player:        player,
 		conn:          conn,
-		write:         make(chan any, 256),
+		write:         make(chan []byte, 256),
 		handleMsgFunc: handleMsgFunc,
 		onClose:       onClose,
 	}
@@ -58,6 +59,19 @@ func (c *Client) SetHandleFunc(handleMsgFunc HandleMsgFunc) {
 	defer c.mu.Unlock()
 
 	c.handleMsgFunc = handleMsgFunc
+}
+
+func (c *Client) Send(msg any) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to json.Marshal: %v", err))
+	}
+
+	select {
+	case c.write <- data:
+	default:
+		c.Close()
+	}
 }
 
 func (c *Client) readPump() {
@@ -102,7 +116,7 @@ func (c *Client) writePump() {
 				return
 			}
 
-			if err := c.conn.WriteJSON(msg); err != nil {
+			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 				log.Printf("Websocket write message: %v", err)
 				return
 			}
@@ -112,6 +126,43 @@ func (c *Client) writePump() {
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+		}
+	}
+}
+
+type ClientManager struct {
+	clients map[*Client]struct{}
+	mu      sync.RWMutex
+}
+
+func (cm *ClientManager) register(c *Client) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	cm.clients[c] = struct{}{}
+}
+
+func (cm *ClientManager) remove(c *Client) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	delete(cm.clients, c)
+}
+
+func (cm *ClientManager) broadcast(msg any) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to json.Marshal: %v", err))
+	}
+
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	for c := range cm.clients {
+		select {
+		case c.write <- data:
+		default:
+			c.Close()
 		}
 	}
 }

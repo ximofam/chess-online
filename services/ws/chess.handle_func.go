@@ -50,7 +50,7 @@ func (s *server) ChessHandleFunc(c *Client, msg *WsMessageRequest) {
 			return
 		}
 
-		room.remove(player)
+		room.remove(c)
 
 		chatMsg := ChatMessage{
 			Text:   fmt.Sprintf("%s has left the room", player.Username),
@@ -81,10 +81,10 @@ func (s *server) ChessHandleFunc(c *Client, msg *WsMessageRequest) {
 	case ChessEventInfoList:
 		res := toChessRoomInfo(room)
 
-		c.write <- WsMessageResponse{
+		c.Send(WsMessageResponse{
 			Type: ChessTypeInfoList,
 			Data: res,
-		}
+		})
 
 	case ChessEventChat:
 		var payload struct {
